@@ -21,10 +21,11 @@
 
 
 #define EXIT_FAILURE_GRID_INVALID -1
+#define EXIT_FAILURE_TREASURE_NOT_INITIALIZED -2
 
 #define QUIT_CHAR 'q'
 
-// One of X or Y sizes must be > 1.
+// X & Y sizes must be > 0.  One of X or Y sizes must be > 1.
 #define X_SIZE 2
 #define Y_SIZE 1
 
@@ -258,6 +259,31 @@ void destroyRoomGrid(Room** gridOriginRoom) {
 // Game logic
 //
 
+
+BOOL isOrigin(int x, int y) {
+	return x == 0 && y == 0;
+}
+
+
+Room* initTreasure(Room* room, int xSize, int ySize) {
+
+	while (TRUE) {
+	
+		// Get random coordinate (not origin).
+		int x = arc4random_uniform(xSize);
+		int y = arc4random_uniform(ySize);
+		if (isOrigin(x, y)) continue;
+
+		// Get room at coordinate.
+		room = getGridRoomByIndex(room, x, y);
+		if (!room) return NULL;
+		room->hasTreasure = TRUE;
+		break;
+	}
+
+	return room;
+}
+
 void showPlayerStatus(Player* player) {
 	
 	MDLog(@"%s's Status:", player->name);
@@ -267,10 +293,14 @@ void showPlayerStatus(Player* player) {
 	MDLog(@"Room: (%d,%d)", room->x, room->y);
 	
 	MDLog(@"Exits:");
-	if (room->hasNorthExit) MDLog(@"\tNorth");
-	if (room->hasSouthExit) MDLog(@"\tSouth");
-	if (room->hasWestExit) MDLog(@"\tWest");
-	if (room->hasEastExit) MDLog(@"\tEast");
+	if (room->northRoom) MDLog(@"\tNorth");
+	if (room->southRoom) MDLog(@"\tSouth");
+	if (room->westRoom) MDLog(@"\tWest");
+	if (room->eastRoom) MDLog(@"\tEast");
+	//	if (room->hasNorthExit) MDLog(@"\tNorth");
+	//	if (room->hasSouthExit) MDLog(@"\tSouth");
+	//	if (room->hasWestExit) MDLog(@"\tWest");
+	//	if (room->hasEastExit) MDLog(@"\tEast");
 }
 
 
@@ -328,10 +358,15 @@ int main(int argc, const char * argv[]) {
 		char str[255];
 		
 		// Config room grid.
+		// Add treasure at ramdom spot (not origin).
 		Room* gridOriginRoom = createRoomGrid(X_SIZE, Y_SIZE);
 		if (!gridOriginRoom) {
 			MDLog(@"Invalid room grid.");
 			return EXIT_FAILURE_GRID_INVALID;
+		}
+		if (!initTreasure(gridOriginRoom, X_SIZE, Y_SIZE)) {
+			MDLog(@"Cannot place treasure.");
+			return EXIT_FAILURE_TREASURE_NOT_INITIALIZED;
 		}
 		
 		// Config player.
@@ -342,7 +377,7 @@ int main(int argc, const char * argv[]) {
 		// Play game until quit.
 		Room* nextRoom = NULL;
 		BOOL isGameOn = TRUE;
-		while (TRUE) { // REPL
+		while (isGameOn) { // REPL
 			
 			// Check player status.
 			// If player has treasure, they win game.
@@ -383,9 +418,10 @@ int main(int argc, const char * argv[]) {
 				// Move player in requested direction, if possible.
 				if (tryMove(&player, nextRoom)) {
 					MDLog(@"Moved successfully in direction: %c", direction);
-				} else {
-					MDLog(@"Unable to move in direction: %c", direction);
+					break;
 				}
+
+				MDLog(@"Unable to move in direction: %c", direction);
 			}
 			
 		} // REPL
