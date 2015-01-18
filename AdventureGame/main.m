@@ -79,66 +79,8 @@ typedef struct Player {
 
 
 //
-// Initializers
+// Helpers
 //
-
-Room* roomInitWithAll(Room* room, int x, int y,
-					  Room* northRoom, Room* southRoom, Room* westRoom, Room* eastRoom,
-					  BOOL hasNorthExit, BOOL hasSouthExit, BOOL hasWestExit, BOOL hasEastExit,
-					  BOOL isEmpty, BOOL hasTreasure, BOOL hasCube, BOOL hasGem) {
-	
-	room->x = x;
-	room->y = y;
-	
-	room->northRoom = northRoom;
-	room->southRoom = southRoom;
-	room->westRoom = westRoom;
-	room->eastRoom = eastRoom;
-	
-	room->hasNorthExit = hasNorthExit;
-	room->hasSouthExit = hasSouthExit;
-	room->hasWestExit = hasWestExit;
-	room->hasEastExit = hasEastExit;
-	
-	room->isEmpty = isEmpty;
-	room->hasTreasure = hasTreasure;
-	room->hasCube = hasCube;
-	room->hasGem = hasGem;
-	
-	return room;
-}
-
-Room* roomInitWithXY(Room* room, int x, int y) {
-	return roomInitWithAll(room, x, y,
-						   NULL, NULL, NULL, NULL,
-						   TRUE, TRUE, TRUE, TRUE,
-						   TRUE, FALSE, FALSE, FALSE);
-}
-
-Room* createRoom() {
-	return malloc(sizeof(Room));
-}
-
-void destroyRoom(Room** room) {
-	if (!room || !*room) return;
-	free(*room);
-	*room = NULL;
-}
-
-Player* initPlayer(Player* player, char* name, int health, Room* room) {
-	
-	player->name = malloc(strlen(name) + 1);
-	strcpy(player->name, name);
-	
-	player->health = health;
-	player->currRoom = room;
-	
-	player->hasTreasure = FALSE;
-	player->hasGem = FALSE;
-	
-	return player;
-}
-
 
 Room* getRoomNeighbour(Room* room, GridDirection direction) {
 	
@@ -170,7 +112,7 @@ Room* getGridRoomByDirection(Room* room, GridDirection direction, int index) {
 	if (index <= 0) return room;
 	
 	room = getRoomNeighbour(room, direction);
-
+	
 	return getGridRoomByDirection(room, direction, index - 1);
 }
 
@@ -183,6 +125,72 @@ Room* getGridRoomByIndex(Room* room, int x, int y) {
 	room = getGridRoomByDirection(room, GridDirection_East, x);
 	
 	return getGridRoomByDirection(room, GridDirection_North, y);
+}
+
+
+//
+// Initializers
+//
+
+Room* roomInitWithAll(Room* room, int x, int y,
+					  Room* northRoom, Room* southRoom, Room* westRoom, Room* eastRoom,
+					  BOOL hasNorthExit, BOOL hasSouthExit, BOOL hasWestExit, BOOL hasEastExit,
+					  BOOL isEmpty, BOOL hasTreasure, BOOL hasCube, BOOL hasGem) {
+	
+	room->x = x;
+	room->y = y;
+	
+	room->northRoom = northRoom;
+	room->southRoom = southRoom;
+	room->westRoom = westRoom;
+	room->eastRoom = eastRoom;
+	
+	room->hasNorthExit = hasNorthExit;
+	room->hasSouthExit = hasSouthExit;
+	room->hasWestExit = hasWestExit;
+	room->hasEastExit = hasEastExit;
+	
+	room->isEmpty = isEmpty;
+	room->hasTreasure = hasTreasure;
+	room->hasCube = hasCube;
+	room->hasGem = hasGem;
+	
+	return room;
+}
+
+
+Room* roomInitWithXY(Room* room, int x, int y) {
+	return roomInitWithAll(room, x, y,
+						   NULL, NULL, NULL, NULL,
+						   TRUE, TRUE, TRUE, TRUE,
+						   TRUE, FALSE, FALSE, FALSE);
+}
+
+
+Room* createRoom() {
+	return malloc(sizeof(Room));
+}
+
+
+void destroyRoom(Room** room) {
+	if (!room || !*room) return;
+	free(*room);
+	*room = NULL;
+}
+
+
+Player* initPlayer(Player* player, char* name, int health, Room* room) {
+	
+	player->name = malloc(strlen(name) + 1);
+	strcpy(player->name, name);
+	
+	player->health = health;
+	player->currRoom = room;
+	
+	player->hasTreasure = FALSE;
+	player->hasGem = FALSE;
+	
+	return player;
 }
 
 
@@ -241,7 +249,7 @@ void destroyRoomGrid(Room** gridOriginRoom) {
 // Game logic
 //
 
-void playerStatus(Player* player) {
+void showPlayerStatus(Player* player) {
 	
 	MDLog(@"%s's Status:", player->name);
 	MDLog(@"Health: %d/%d", player->health, INIT_HEALTH);
@@ -326,7 +334,7 @@ int main(int argc, const char * argv[]) {
 			// Check player status.
 			// If player has treasure, they win game.
 			// If player has no health, game is over.
-			playerStatus(&player);
+			showPlayerStatus(&player);
 			if (player.hasTreasure) {
 				MDLog(@"%s WINS!", player.name);
 				isGameOn = FALSE;
