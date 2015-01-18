@@ -26,7 +26,7 @@
 #define QUIT_CHAR 'q'
 
 // X & Y sizes must be > 0.  One of X or Y sizes must be > 1.
-#define X_SIZE 3
+#define X_SIZE 4
 #define Y_SIZE 1 // TODO: Implement Y > 1
 
 #define INIT_HEALTH 2
@@ -278,6 +278,7 @@ Room* initTreasure(Room* room, int xSize, int ySize) {
 		room = getGridRoomByIndex(room, x, y);
 		if (!room) return NULL;
 		room->hasTreasure = TRUE;
+		MDLog(@"Treasure: (%d,%d)", x, y);
 		break;
 	}
 
@@ -364,6 +365,7 @@ int main(int argc, const char * argv[]) {
 			MDLog(@"Invalid room grid.");
 			return EXIT_FAILURE_GRID_INVALID;
 		}
+		MDLog(@"Grid: (%d,%d)", X_SIZE, Y_SIZE);
 		if (!initTreasure(gridOriginRoom, X_SIZE, Y_SIZE)) {
 			MDLog(@"Cannot place treasure.");
 			return EXIT_FAILURE_TREASURE_NOT_INITIALIZED;
