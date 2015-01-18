@@ -26,11 +26,11 @@
 #define QUIT_CHAR 'q'
 
 // X & Y sizes must be > 0.  One of X or Y sizes must be > 1.
-#define X_SIZE 2
-#define Y_SIZE 1
+#define X_SIZE 3
+#define Y_SIZE 1 // TODO: Implement Y > 1
 
 #define INIT_HEALTH 2
-#define CUBE_PENALTY_FRACTION (1/2)
+#define CUBE_PENALTY (INIT_HEALTH/2)
 
 
 //
@@ -325,7 +325,7 @@ BOOL tryMoveDirection(Player* player, Room* nextRoom, Room* checkRoom, BOOL exit
 	}
 	
 	if (checkRoom->hasCube && !player->hasTreasure) {
-		player->health -= player->health * CUBE_PENALTY_FRACTION;
+		player->health -= CUBE_PENALTY;
 		MDLog(@"Injured by cube!");
 	}
 	
