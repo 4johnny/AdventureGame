@@ -19,9 +19,14 @@
 #define MDLog(format, ...) CFShow([NSString stringWithFormat:format, ## __VA_ARGS__]);
 #endif
 
+
+#define EXIT_FAILURE_GRID_INVALID -1
+
 #define QUIT_CHAR 'q'
-#define X_SIZE 4
-#define Y_SIZE 4
+
+// One of X or Y sizes must be > 1.
+#define X_SIZE 2
+#define Y_SIZE 1
 
 #define INIT_HEALTH 2
 #define CUBE_PENALTY_FRACTION (1/2)
@@ -223,8 +228,12 @@ Room* createRoomListX(int xSize, int y, Room* eastList, Room* northList) {
 
 Room* createRoomListY(int x, int ySize, Room* northList) {
 	
-	if (ySize <= 0) return NULL;
-	
+	if (ySize <= 0) return northList;
+
+	if (northList) {
+		northList = getGridRoomByDirection(northList, GridDirection_East, x - 1);
+	}
+
 	Room* room = createRoomListX(x, ySize - 1, NULL, northList);
 	room = createRoomListY(x, ySize - 1, room);
 	
@@ -241,7 +250,7 @@ Room* createRoomGrid(int xSize, int ySize) {
 
 
 void destroyRoomGrid(Room** gridOriginRoom) {
-	// TODO: Free up memory.
+	// TODO: Free up memory.  Consider keeping a global list of all created rooms.  Then just traverse list to "garbage collect".
 }
 
 
@@ -287,7 +296,7 @@ BOOL tryMoveDirection(Player* player, Room* nextRoom, Room* checkRoom, BOOL exit
 	
 	if (checkRoom->hasCube && !player->hasTreasure) {
 		player->health -= player->health * CUBE_PENALTY_FRACTION;
-		MDLog(@"Injured by cube.");
+		MDLog(@"Injured by cube!");
 	}
 	
 	return TRUE; // Move was valid
@@ -320,6 +329,10 @@ int main(int argc, const char * argv[]) {
 		
 		// Config room grid.
 		Room* gridOriginRoom = createRoomGrid(X_SIZE, Y_SIZE);
+		if (!gridOriginRoom) {
+			MDLog(@"Invalid room grid.");
+			return EXIT_FAILURE_GRID_INVALID;
+		}
 		
 		// Config player.
 		MDLog(@"Player name: ");
@@ -379,5 +392,5 @@ int main(int argc, const char * argv[]) {
 		
 	} // @autoreleasepool
 
-	return 0;
+	return EXIT_SUCCESS;
 }
