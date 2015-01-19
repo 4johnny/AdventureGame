@@ -22,8 +22,12 @@
 
 #define EXIT_FAILURE_GRID_INVALID -1
 #define EXIT_FAILURE_TREASURE_NOT_INITIALIZED -2
+#define EXIT_FAILURE_CUBE_NOT_INITIALIZED -3
+#define EXIT_FAILURE_GEM_NOT_INITIALIZED -4
 
-#define QUIT_CHAR 'q'
+#define C_QUIT 'q'
+#define S_YES @"Yes"
+#define S_NO @"No"
 
 // X & Y sizes must be > 0.  One of X or Y sizes must be > 1.
 #define X_SIZE 4
@@ -266,32 +270,91 @@ BOOL isOrigin(int x, int y) {
 
 
 Room* initTreasure(Room* room, int xSize, int ySize) {
-
-	while (TRUE) {
 	
+	while (TRUE) {
+
 		// Get random coordinate (not origin).
 		int x = arc4random_uniform(xSize);
 		int y = arc4random_uniform(ySize);
 		if (isOrigin(x, y)) continue;
-
+		
 		// Get room at coordinate.
 		room = getGridRoomByIndex(room, x, y);
-		if (!room) return NULL;
+		if (!room) {
+			MDLog(@"Cannot place treasure.");
+			return NULL;
+		}
+
+		// Place treasure.
 		room->hasTreasure = TRUE;
 		MDLog(@"Treasure: (%d,%d)", x, y);
 		break;
 	}
-
+	
 	return room;
 }
 
+
+Room* initCube(Room* room, int xSize, int ySize) {
+	
+	while (TRUE) {
+		
+		// Get random coordinate (not origin).
+		int x = arc4random_uniform(xSize);
+		int y = arc4random_uniform(ySize);
+		if (isOrigin(x, y)) continue;
+		
+		// Get room at coordinate.
+		room = getGridRoomByIndex(room, x, y);
+		if (!room) {
+			MDLog(@"Cannot place cube.");
+			return NULL;
+		}
+
+		// Place cube.
+		room->hasCube = TRUE;
+		MDLog(@"Cube: (%d,%d)", x, y);
+		break;
+	}
+	
+	return room;
+}
+
+
+Room* initGem(Room* room, int xSize, int ySize) {
+	
+	while (TRUE) {
+		
+		// Get random coordinate (not origin).
+		int x = arc4random_uniform(xSize);
+		int y = arc4random_uniform(ySize);
+		if (isOrigin(x, y)) continue;
+		
+		// Get room at coordinate.
+		room = getGridRoomByIndex(room, x, y);
+		if (!room) {
+			MDLog(@"Cannot place gem.");
+			return NULL;
+		}
+		
+		// Place gem.
+		room->hasGem = TRUE;
+		MDLog(@"Gem: (%d,%d)", x, y);
+		break;
+	}
+	
+	return room;
+}
+
+
 void showPlayerStatus(Player* player) {
 	
-	MDLog(@"%s's Status:", player->name);
-	MDLog(@"Health: %d/%d", player->health, INIT_HEALTH);
-	
 	Room* room = player->currRoom;
-	MDLog(@"Room: (%d,%d)", room->x, room->y);
+	MDLog(@"%s's Status: Health:%.0f%% | Gem:%@ | Room:(%d,%d)",
+		  player->name,
+		  ((float)player->health / INIT_HEALTH) * 100,
+		  player->hasGem ? S_YES : S_NO,
+		  room->x, room->y);
 	
 	MDLog(@"Exits:");
 	if (room->northRoom) MDLog(@"\tNorth");
@@ -326,8 +389,14 @@ BOOL tryMoveDirection(Player* player, Room* nextRoom, Room* checkRoom, BOOL exit
 	}
 	
 	if (checkRoom->hasCube && !player->hasTreasure) {
-		player->health -= CUBE_PENALTY;
-		MDLog(@"Injured by cube!");
+		if (player->hasGem) {
+			player->hasGem = FALSE;
+			checkRoom->hasCube = FALSE;
+			MDLog(@"Destroyed cube with gem!");
+		} else {
+			player->health -= CUBE_PENALTY;
+			MDLog(@"Injured by cube!");
+		}
 	}
 	
 	return TRUE; // Move was valid
@@ -359,17 +428,16 @@ int main(int argc, const char * argv[]) {
 		char str[255];
 		
 		// Config room grid.
-		// Add treasure at ramdom spot (not origin).
+		// Add treasure, cube, & gem at random spots (not origin).
 		Room* gridOriginRoom = createRoomGrid(X_SIZE, Y_SIZE);
 		if (!gridOriginRoom) {
 			MDLog(@"Invalid room grid.");
 			return EXIT_FAILURE_GRID_INVALID;
 		}
 		MDLog(@"Grid: (%d,%d)", X_SIZE, Y_SIZE);
-		if (!initTreasure(gridOriginRoom, X_SIZE, Y_SIZE)) {
-			MDLog(@"Cannot place treasure.");
-			return EXIT_FAILURE_TREASURE_NOT_INITIALIZED;
-		}
+		if (!initTreasure(gridOriginRoom, X_SIZE, Y_SIZE)) return EXIT_FAILURE_TREASURE_NOT_INITIALIZED;
+		if (!initCube(gridOriginRoom, X_SIZE, Y_SIZE)) return EXIT_FAILURE_CUBE_NOT_INITIALIZED;
+		if (!initGem(gridOriginRoom, X_SIZE, Y_SIZE)) return EXIT_FAILURE_GEM_NOT_INITIALIZED;
 		
 		// Config player.
 		MDLog(@"Player name: ");
@@ -399,12 +467,12 @@ int main(int argc, const char * argv[]) {
 			while (TRUE) {
 				
 				// Ask player for direction.
-				MDLog(@"Direction (%c,%c,%c,%c,%c): ",
+				MDLog(@"Direction (%c,%c,%c,%c,%c)? ",
 					  GridDirection_North, GridDirection_South,
 					  GridDirection_West, GridDirection_East,
-					  QUIT_CHAR);
+					  C_QUIT);
 				MDLog(@"> "); scanf("%s", str);
-				if (str[0] == QUIT_CHAR) {
+				if (str[0] == C_QUIT) {
 					isGameOn = FALSE;
 					break;
 				}
@@ -417,11 +485,8 @@ int main(int argc, const char * argv[]) {
 					continue;
 				}
 				
-				// Move player in requested direction, if possible.
-				if (tryMove(&player, nextRoom)) {
-					MDLog(@"Moved successfully in direction: %c", direction);
-					break;
-				}
+				// Try to move player in requested direction.
+				if (tryMove(&player, nextRoom)) break;
 
 				MDLog(@"Unable to move in direction: %c", direction);
 			}
