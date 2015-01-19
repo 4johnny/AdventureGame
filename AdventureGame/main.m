@@ -39,7 +39,7 @@
 
 // X and Y sizes must be > 0.  At least one of X or Y sizes must be > 1.
 #define X_SIZE 4
-#define Y_SIZE 1 // TODO: Implement Y > 1
+#define Y_SIZE 4
 
 
 //
@@ -121,10 +121,56 @@ Room* getRoomNeighbour(Room* room, GridDirection direction) {
 }
 
 
+BOOL setRoomNeighbourNorthSouth(Room* northRoom, Room* southRoom) {
+	
+	if (!northRoom || !southRoom) return FALSE;
+	
+	northRoom->southRoom = southRoom;
+	southRoom->northRoom = northRoom;
+	
+	return TRUE;
+}
+
+
+BOOL setRoomNeighbourWestEast(Room* westRoom, Room* eastRoom) {
+	
+	if (!westRoom || !eastRoom) return FALSE;
+	
+	westRoom->eastRoom = eastRoom;
+	eastRoom->westRoom = westRoom;
+	
+	return TRUE;
+}
+
+
+BOOL setRoomNeighbour(Room* srcRoom, Room* destRoom, GridDirection direction) {
+	
+	if (!direction || !srcRoom || !destRoom) return FALSE;
+	
+	switch (direction) {
+			
+		case GridDirection_North:
+			return setRoomNeighbourNorthSouth(destRoom, srcRoom);
+			
+		case GridDirection_South:
+			return setRoomNeighbourNorthSouth(srcRoom, destRoom);
+			
+		case GridDirection_West:
+			return setRoomNeighbourWestEast(destRoom, srcRoom);
+			
+		case GridDirection_East:
+			return setRoomNeighbourWestEast(srcRoom, destRoom);
+			
+		default:
+			return FALSE;
+	}
+}
+
+
 int getGridDimByDirection(Room* room, GridDirection direction) {
 	
 	if (!room) return 0;
-	if (direction == GridDirection_None) return 1;
+	if (!direction) return 1;
 
 	return 1 + getGridDimByDirection(getRoomNeighbour(room, direction), direction);
 }
@@ -213,6 +259,47 @@ void destroyRoom(Room** room) {
 }
 
 
+Room* createRoomListX(int xSize, int y, Room* eastRoom, Room* northRoom) {
+	
+	if (xSize <= 0) return eastRoom;
+	
+	// Create room and connect to neighbours to east and north, if present.
+	Room* room = roomInitWithXY(createRoom(), xSize - 1, y);
+	setRoomNeighbour(room, eastRoom, GridDirection_East);
+	setRoomNeighbour(room, northRoom, GridDirection_North);
+
+	if (northRoom) northRoom = northRoom->westRoom;
+	
+	return createRoomListX(xSize - 1, y, room, northRoom);
+}
+
+
+Room* createRoomListY(int x, int ySize, Room* northRoom) {
+	
+	if (ySize <= 0) return northRoom;
+
+	northRoom = getGridRoomByDirection(northRoom, GridDirection_East, x - 1);
+	
+	Room* room = createRoomListX(x, ySize - 1, NULL, northRoom);
+	
+	return createRoomListY(x, ySize - 1, room);
+}
+
+
+Room* createRoomGrid(int xSize, int ySize) {
+	
+	if (xSize < 1 || ySize < 1) return NULL;
+	if (xSize == 1 && ySize == 1) return NULL;
+	
+	return createRoomListY(xSize, ySize, NULL);
+}
+
+
+void destroyRoomGrid(Room** gridOriginRoom) {
+	// TODO: Free up memory.  Consider keeping a global list of all created rooms.  Then just traverse list to "garbage collect".
+}
+
+
 Player* initPlayer(Player* player, char* name, int health, Room* room) {
 	
 	player->name = malloc(strlen(name) + 1);
@@ -225,61 +312,6 @@ Player* initPlayer(Player* player, char* name, int health, Room* room) {
 	player->hasGem = FALSE;
 	
 	return player;
-}
-
-
-Room* connectRoomToEastList(Room* room, Room* eastList) {
-	
-	if (!room) return NULL;
-	
-	if (eastList) {
-		eastList->westRoom = room;
-	}
-	
-	room->eastRoom = eastList;
-	
-	return room;
-}
-
-
-Room* createRoomListX(int xSize, int y, Room* eastList, Room* northList) {
-	
-	if (xSize <= 0) return eastList;
-	
-	Room* room = roomInitWithXY(createRoom(), xSize - 1, y);
-	room = connectRoomToEastList(room, eastList);
-	
-	room = createRoomListX(xSize - 1, y, room, northList);
-	
-	return room;
-}
-
-
-Room* createRoomListY(int x, int ySize, Room* northList) {
-	
-	if (ySize <= 0) return northList;
-
-	if (northList) {
-		northList = getGridRoomByDirection(northList, GridDirection_East, x - 1);
-	}
-
-	Room* room = createRoomListX(x, ySize - 1, NULL, northList);
-	room = createRoomListY(x, ySize - 1, room);
-	
-	return room;
-}
-
-
-Room* createRoomGrid(int xSize, int ySize) {
-	
-	if (xSize <= 1 && ySize <= 1) return NULL;
-	
-	return createRoomListY(xSize, ySize, NULL);
-}
-
-
-void destroyRoomGrid(Room** gridOriginRoom) {
-	// TODO: Free up memory.  Consider keeping a global list of all created rooms.  Then just traverse list to "garbage collect".
 }
 
 
