@@ -116,6 +116,25 @@ Room* getRoomNeighbour(Room* room, GridDirection direction) {
 }
 
 
+int getGridDimByDirection(Room* room, GridDirection direction) {
+	
+	if (!room) return 0;
+	if (direction == GridDirection_None) return 1;
+
+	return 1 + getGridDimByDirection(getRoomNeighbour(room, direction), direction);
+}
+
+
+int getGridDimX(Room* gridOriginRoom) {
+	return getGridDimByDirection(gridOriginRoom, GridDirection_East);
+}
+
+
+int getGridDimY(Room* gridOriginRoom) {
+	return getGridDimByDirection(gridOriginRoom, GridDirection_North);
+}
+
+
 Room* getGridRoomByDirection(Room* room, GridDirection direction, int index) {
 	
 	if (!room) return NULL;
@@ -434,7 +453,7 @@ int main(int argc, const char * argv[]) {
 			MDLog(@"Invalid room grid.");
 			return EXIT_FAILURE_GRID_INVALID;
 		}
-		MDLog(@"Grid: (%d,%d)", X_SIZE, Y_SIZE);
+		MDLog(@"Grid: (%d,%d)", getGridDimX(gridOriginRoom), getGridDimY(gridOriginRoom));
 		if (!initTreasure(gridOriginRoom, X_SIZE, Y_SIZE)) return EXIT_FAILURE_TREASURE_NOT_INITIALIZED;
 		if (!initCube(gridOriginRoom, X_SIZE, Y_SIZE)) return EXIT_FAILURE_CUBE_NOT_INITIALIZED;
 		if (!initGem(gridOriginRoom, X_SIZE, Y_SIZE)) return EXIT_FAILURE_GEM_NOT_INITIALIZED;
