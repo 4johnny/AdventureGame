@@ -26,15 +26,20 @@
 #define EXIT_FAILURE_GEM_NOT_INITIALIZED -4
 
 #define C_QUIT 'q'
-#define S_YES @"Yes"
-#define S_NO @"No"
 
-// X & Y sizes must be > 0.  One of X or Y sizes must be > 1.
-#define X_SIZE 4
-#define Y_SIZE 1 // TODO: Implement Y > 1
+#define S_YES "Yes"
+#define S_NO "No"
+
+#define S_TREASURE "Treasure"
+#define S_CUBE "Cube"
+#define S_GEM "Gem"
 
 #define INIT_HEALTH 2
 #define CUBE_PENALTY (INIT_HEALTH/2)
+
+// X and Y sizes must be > 0.  At least one of X or Y sizes must be > 1.
+#define X_SIZE 4
+#define Y_SIZE 1 // TODO: Implement Y > 1
 
 
 //
@@ -288,77 +293,37 @@ BOOL isOrigin(int x, int y) {
 }
 
 
-Room* initTreasure(Room* room, int xSize, int ySize) {
+Room* placeThingRandom(Room* gridOriginRoom, char* thingName) {
 	
+	if (!gridOriginRoom || !thingName) return NULL;
+	
+	Room* room = gridOriginRoom;
+	int xDim = getGridDimX(room);
+	int yDim = getGridDimY(room);
+
 	while (TRUE) {
 
-		// Get random coordinate (not origin).
-		int x = arc4random_uniform(xSize);
-		int y = arc4random_uniform(ySize);
+		// Get random coordinate. If origin, try again.
+		int x = arc4random_uniform(xDim);
+		int y = arc4random_uniform(yDim);
 		if (isOrigin(x, y)) continue;
 		
 		// Get room at coordinate.
 		room = getGridRoomByIndex(room, x, y);
 		if (!room) {
-			MDLog(@"Cannot place treasure.");
+			MDLog(@"Cannot place %s.", thingName);
 			return NULL;
 		}
 
-		// Place treasure.
-		room->hasTreasure = TRUE;
-		MDLog(@"Treasure: (%d,%d)", x, y);
-		break;
-	}
-	
-	return room;
-}
-
-
-Room* initCube(Room* room, int xSize, int ySize) {
-	
-	while (TRUE) {
-		
-		// Get random coordinate (not origin).
-		int x = arc4random_uniform(xSize);
-		int y = arc4random_uniform(ySize);
-		if (isOrigin(x, y)) continue;
-		
-		// Get room at coordinate.
-		room = getGridRoomByIndex(room, x, y);
-		if (!room) {
-			MDLog(@"Cannot place cube.");
-			return NULL;
+		// Place thing.
+		if (strcmp(thingName, "Treasure") == 0) {
+			room->hasTreasure = TRUE;
+		} else if (strcmp(thingName, "Cube") == 0) {
+			room->hasCube = TRUE;
+		} else if (strcmp(thingName, "Gem") == 0) {
+			room->hasGem = TRUE;
 		}
-
-		// Place cube.
-		room->hasCube = TRUE;
-		MDLog(@"Cube: (%d,%d)", x, y);
-		break;
-	}
-	
-	return room;
-}
-
-
-Room* initGem(Room* room, int xSize, int ySize) {
-	
-	while (TRUE) {
-		
-		// Get random coordinate (not origin).
-		int x = arc4random_uniform(xSize);
-		int y = arc4random_uniform(ySize);
-		if (isOrigin(x, y)) continue;
-		
-		// Get room at coordinate.
-		room = getGridRoomByIndex(room, x, y);
-		if (!room) {
-			MDLog(@"Cannot place gem.");
-			return NULL;
-		}
-		
-		// Place gem.
-		room->hasGem = TRUE;
-		MDLog(@"Gem: (%d,%d)", x, y);
+		MDLog(@"%s: (%d,%d)", thingName, x, y);
 		break;
 	}
 	
@@ -369,7 +334,7 @@ Room* initGem(Room* room, int xSize, int ySize) {
 void showPlayerStatus(Player* player) {
 	
 	Room* room = player->currRoom;
-	MDLog(@"%s's Status: Health:%.0f%% | Gem:%@ | Room:(%d,%d)",
+	MDLog(@"%s's Status: Health:%.0f%% | Gem:%s | Room:(%d,%d)",
 		  player->name,
 		  ((float)player->health / INIT_HEALTH) * 100,
 		  player->hasGem ? S_YES : S_NO,
@@ -387,7 +352,7 @@ void showPlayerStatus(Player* player) {
 }
 
 
-BOOL tryMoveDirection(Player* player, Room* nextRoom, Room* checkRoom, BOOL exit) {
+BOOL tryMoveDirection(Room* gridOriginRoom, Player* player, Room* nextRoom, Room* checkRoom, BOOL exit) {
 	
 	// If next room is not valid, we are done.
 	if (!checkRoom || nextRoom != checkRoom || !exit) return FALSE;
@@ -395,26 +360,33 @@ BOOL tryMoveDirection(Player* player, Room* nextRoom, Room* checkRoom, BOOL exit
 	// Move player to next room, and run game rules.
 	player->currRoom = nextRoom;
 	
+	// If treasure, grab it.
 	if (checkRoom->hasTreasure) {
 		checkRoom->hasTreasure = FALSE;
 		player->hasTreasure = TRUE;
-		MDLog(@"Found treasure!");
+		MDLog(@"Found %s!", S_TREASURE);
 	}
 	
+	// If gem, grab it.
 	if (checkRoom->hasGem) {
 		checkRoom->hasGem = FALSE;
 		player->hasGem = TRUE;
-		MDLog(@"Found gem!");
+		MDLog(@"Found %s!", S_GEM);
 	}
 	
+	// If cube, destroy with gem; o/w get injured and cube moves.
 	if (checkRoom->hasCube && !player->hasTreasure) {
 		if (player->hasGem) {
 			player->hasGem = FALSE;
 			checkRoom->hasCube = FALSE;
-			MDLog(@"Destroyed cube with gem!");
+			MDLog(@"Destroyed %s with %s!", S_CUBE, S_GEM);
 		} else {
 			player->health -= CUBE_PENALTY;
-			MDLog(@"Injured by cube!");
+			MDLog(@"Injured by %s!", S_CUBE);
+			checkRoom->hasCube = FALSE;
+			if (!placeThingRandom(gridOriginRoom, S_CUBE)) {
+				checkRoom->hasCube = TRUE;
+			}
 		}
 	}
 	
@@ -422,15 +394,15 @@ BOOL tryMoveDirection(Player* player, Room* nextRoom, Room* checkRoom, BOOL exit
 }
 
 
-BOOL tryMove(Player* player, Room* nextRoom) {
+BOOL tryMove(Room* gridOriginRoom, Player* player, Room* nextRoom) {
+	
 	Room* currRoom = player->currRoom;
 	
-	// If next room player desires is possible, move player.
-	// Check all directions.
-	if (tryMoveDirection(player, nextRoom, currRoom->northRoom, currRoom->hasNorthExit)) return TRUE;
-	if (tryMoveDirection(player, nextRoom, currRoom->southRoom, currRoom->hasSouthExit)) return TRUE;
-	if (tryMoveDirection(player, nextRoom, currRoom->westRoom, currRoom->hasWestExit)) return TRUE;
-	if (tryMoveDirection(player, nextRoom, currRoom->eastRoom, currRoom->hasEastExit)) return TRUE;
+	// Try to move player to desired direction. Check all directions.
+	if (tryMoveDirection(gridOriginRoom, player, nextRoom, currRoom->northRoom, currRoom->hasNorthExit)) return TRUE;
+	if (tryMoveDirection(gridOriginRoom, player, nextRoom, currRoom->southRoom, currRoom->hasSouthExit)) return TRUE;
+	if (tryMoveDirection(gridOriginRoom, player, nextRoom, currRoom->westRoom, currRoom->hasWestExit)) return TRUE;
+	if (tryMoveDirection(gridOriginRoom, player, nextRoom, currRoom->eastRoom, currRoom->hasEastExit)) return TRUE;
 	
 	return FALSE;
 }
@@ -454,9 +426,9 @@ int main(int argc, const char * argv[]) {
 			return EXIT_FAILURE_GRID_INVALID;
 		}
 		MDLog(@"Grid: (%d,%d)", getGridDimX(gridOriginRoom), getGridDimY(gridOriginRoom));
-		if (!initTreasure(gridOriginRoom, X_SIZE, Y_SIZE)) return EXIT_FAILURE_TREASURE_NOT_INITIALIZED;
-		if (!initCube(gridOriginRoom, X_SIZE, Y_SIZE)) return EXIT_FAILURE_CUBE_NOT_INITIALIZED;
-		if (!initGem(gridOriginRoom, X_SIZE, Y_SIZE)) return EXIT_FAILURE_GEM_NOT_INITIALIZED;
+		if (!placeThingRandom(gridOriginRoom, S_TREASURE)) return EXIT_FAILURE_TREASURE_NOT_INITIALIZED;
+		if (!placeThingRandom(gridOriginRoom, S_CUBE)) return EXIT_FAILURE_CUBE_NOT_INITIALIZED;
+		if (!placeThingRandom(gridOriginRoom, S_GEM)) return EXIT_FAILURE_GEM_NOT_INITIALIZED;
 		
 		// Config player.
 		MDLog(@"Player name: ");
@@ -505,7 +477,7 @@ int main(int argc, const char * argv[]) {
 				}
 				
 				// Try to move player in requested direction.
-				if (tryMove(&player, nextRoom)) break;
+				if (tryMove(gridOriginRoom, &player, nextRoom)) break;
 
 				MDLog(@"Unable to move in direction: %c", direction);
 			}
